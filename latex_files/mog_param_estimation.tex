@@ -1,0 +1,151 @@
+\documentclass[10pt ]{article}
+
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\DeclareMathOperator*{\argmaxA}{arg\,max}
+
+\newtheorem{example}{Example}
+
+\usepackage{tikz}
+\usepackage{soul}
+\usetikzlibrary{shapes.misc, positioning, shapes.geometric, arrows}
+%\usepackage[a4paper,margin=1cm,landscape]{geometry}
+\usetikzlibrary{positioning,shapes,shadows}
+
+
+\tikzstyle{conv2d} = [rectangle, rounded corners, minimum width=4cm, minimum height=1cm,text centered, draw=black, fill=green!30]
+\tikzstyle{bn} = [rectangle, rounded corners, minimum width=4cm, minimum height=1cm,text centered, draw=black, fill=red!30]
+\tikzstyle{relu} = [rectangle, rounded corners, minimum width=4cm, minimum height=1cm,text centered, draw=black, fill=blue!30]
+\tikzstyle{add} = [circle, radius=1cm,text centered, draw=black]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{downsample} = [rectangle, minimum width=6cm, minimum height=4cm,text centered, draw=black, fill=yellow!30]
+\tikzstyle{maxpool} = [rectangle, rounded corners, minimum width=4cm, minimum height=1cm,text centered, draw=black, fill=gray!30]
+
+\tikzstyle{btds} = [rectangle, rounded corners, minimum width=4cm, minimum height=1cm,text centered, draw=black, fill=orange!30]
+
+\tikzstyle{btnods} = [rectangle, rounded corners, minimum width=4cm, minimum height=1cm,text centered, draw=black, fill=violet!30]
+
+\def\ttx{1.4}
+
+\setcounter{page}{1}
+\begin{document}
+
+\title{Estimating the parameters of a Mixture of Gaussians model}
+
+\author{Mohsen Kiskani}
+
+\maketitle
+
+%\begin{abstract}
+%\end{abstract}
+
+\section{Problem definition}
+
+We have a Mixture of Gaussians (MoG) model with parameters $\theta = (\pi_1, \mu_1, \sigma_1, \pi_2, \mu_2, \sigma_2)$. We want to estimate the parameter vector $\theta$ using the data $y_{1:N}$.
+We assume that each data point is gathered independently according to the following distribution
+\begin{align}
+P(y \mid \theta) = \pi_1 \frac{1}{\sigma_1 \sqrt{2 \pi}} \exp \left( -\frac{(y-\mu_1)^2}{2\sigma_1^2}\right) + \pi_2 \frac{1}{\sigma_2 \sqrt{2 \pi}} \exp \left( -\frac{(y-\mu_2)^2}{2\sigma_2^2}\right) 
+\end{align}
+\includegraphics[height=0.7\textwidth]{mog.png}
+\section{Frequentist methods}
+
+\subsection{MAP}
+In this case, we are interested in finding the solution to the following problem,
+\begin{align}
+\hat{\theta}_{MAP} = \argmaxA_{\theta} P(\theta \mid y_{1:N}) =  \argmaxA_{\theta} P(y_{1:N} \mid \theta) P(\theta). 
+\end{align}
+The problem with this approach is that we do not know $P(\theta)$. 
+
+\subsection{MLE}
+This is a simpler problem in which we have
+\begin{align}
+\hat{\theta}_{MLE} = \argmaxA_{\theta} P(y_{1:N} \mid \theta).
+\end{align}
+Due to the independence of the data points we can write
+\begin{align}
+\hat{\theta}_{MLE} &= \argmaxA_{\theta} P(y_{1:N} \mid \theta) = \argmaxA_{\theta} \prod_{i=1}^N P(y_i \mid \theta) \nonumber \\ 
+&= \argmaxA_{\theta} \sum_{i=1}^N \log \left( P(y_i \mid \theta) \right).
+\end{align}
+ Finding the maximizing $\theta$ in this problem can be challenging. Trying to analytically solve the problem by taking the derivative is not possible since analytic solution does not exist. However, we can use gradient descent to estimate the parameter vector.  In gradient descent estimation we want to minimize
+ \begin{align}
+l (\theta)  &=  -\sum_{i=1}^N \log \left( P(y_i \mid \theta) \right) \nonumber \\ &= -\sum_{i=1}^N \log \left( \pi_1 \frac{1}{\sigma_1 \sqrt{2 \pi}} \exp \left( -\frac{(y_i-\mu_1)^2}{2\sigma_1^2}\right) + \pi_2 \frac{1}{\sigma_2 \sqrt{2 \pi}} \exp \left( -\frac{(y_i-\mu_2)^2}{2\sigma_2^2}\right) \right) 
+\end{align}
+with respect to parameters  $\theta = (\pi_1, \mu_1, \sigma_1, \pi_2, \mu_2, \sigma_2)$. We initialize by some random choice for these parameters and then iterate.  The problem with this method is that sometimes, gradient is hard to compute. 
+
+\subsubsection{Expectation Maximization (EM)}
+The EM algorithm attempts to find maximum likelihood estimates for models with latent variables. In the following, we will give a brief overview of the EM algorithm. We assume that the data $y$ is coming from a latent random variable $z$. Hence,
+\begin{align}
+f(\theta) &= \log \left( P(y \mid \theta) \right) = \log \left( \sum_z P(y,z \mid \theta)\right) \nonumber \\
+&= \log \left( \sum_z q(z \mid y, \theta) \frac{P(y,z \mid \theta)}{q(z \mid y, \theta)}\right) \nonumber \\
+&\ge \sum_z q(z \mid y, \theta) \log \left( \frac{P(y,z \mid \theta)}{q(z \mid y, \theta)} \right) \nonumber \\
+&= \sum_z q(z \mid y, \theta) \log \left( \frac{P(z \mid y, \theta) P(y \mid \theta)}{q(z \mid y, \theta)} \right) \nonumber \\
+&= - D_{KL}\left( q(z \mid y, \theta) ~ ||~ P(z \mid y, \theta) \right) + \log \left( P(y \mid \theta) \right).
+\end{align}
+Where $ q(z \mid y, \theta) $ is an arbitrary density over $z$ and the inequality is valid due to Jensen's inequality and concavity of the log function. Now, instead of maximizing $f(\theta)$ directly, one can maximize the lower bound, i.e.
+\begin{align}
+F(q, \theta) &\triangleq \sum_z q(z \mid y, \theta) \log \left( \frac{P(z \mid y, \theta) P(y \mid \theta)}{q(z \mid y, \theta)} \right) \nonumber \\
+&= - D_{KL}\left( q(z \mid y, \theta) ~ ||~ P(z \mid y, \theta) \right) + \log \left( P(y \mid \theta) \right)
+\end{align}
+via coordinate ascent algorithm. This will be the EM algorithm with the following steps:
+\begin{align}
+\mathbf{E-Step} &: q^{(t+1)} = \argmaxA_{q} F(q, \theta^{(t)}) \\
+\mathbf{M-Step} &: \theta^{(t+1)} = \argmaxA_{\theta} F(q^{(t+1)}, \theta).
+\end{align}
+Starting with some initial value of $\theta^{(0)}$, one can cycle between the E and M steps until $\theta^{(t)}$ converges to a local maximum. Computing the E step seem to be a pain in the ass since we are maximizing over the space of distributions. But notice that maximizing $F(q, \theta)$ over $q$ is equivalent to minimizing the KL distance between $q(z \mid y, \theta)$  and $P(z \mid y, \theta) $. Hence, 
+\begin{align}
+q^{(t+1)} = P(z \mid y, \theta^{(t)}).
+\label{eq_q_t_1}
+\end{align}
+Notice that at this minimizing choice for KL distance, the lower bound becomes equal to the negative log likelihood function for $\theta^{(t)}$. 
+
+So at this point, we don't need to worry about finding the optimal $q$ since we know it's exact form and we know that it is a distribution that depends on $\theta^{(t)}$. In M step, we fix $q$ and we note that
+\begin{align}
+F(q, \theta) &=  \sum_z q(z \mid y, \theta) \log \left( \frac{P(y,z \mid \theta)}{q(z \mid y, \theta)} \right) \nonumber \\
+&= \sum_z q(z \mid y, \theta) \log \left( P(y,z \mid \theta)  \right) \nonumber \\
+&- \sum_z q(z \mid y, \theta) \log \left(q(z \mid y, \theta) \right) \nonumber \\
+&= \sum_z q(z \mid y, \theta) \log \left( P(y,z \mid \theta)  \right) + H(q),
+\end{align}
+where $H(q)$ is the entropy of $q$ and is not changing by $\theta$ in the M step as $q$ is fixed in the E step. Hence, maximizing $F(q, \theta)$ in the M step is equivalent to maximizing the expected complete log-likelihood function. In other words, if we define 
+\begin{align}
+Q(\theta \mid \theta^{(t)}) &\triangleq \sum_z q(z \mid y, \theta^{(t)}) \log \left( P(y,z \mid \theta)  \right) \nonumber \\
+&=\mathbb{E}_{P(z \mid y, \theta^{(t)})} \left[ \log \left( P(y, z \mid \theta)\right)\right]
+\end{align}
+then using equation \eqref{eq_q_t_1}, we have 
+\begin{align}
+\argmaxA_{\theta}  F(q^{(t+1)}, \theta) &= \argmaxA_{\theta} F\left(P(z \mid y, \theta^{(t)}), \theta \right) = \argmaxA_{\theta} Q(\theta \mid \theta^{(t)}).
+\end{align}
+Therefore, in summary the EM algorithm can be summarized as follows
+\begin{align}
+\mathbf{E-Step} &: \mathrm{Compute}~ Q(\theta \mid \theta^{(t)}) =\mathbb{E}_{P(z \mid y, \theta^{(t)})} \left[ \log \left( P(y, z \mid \theta)\right)\right] \label{eq_e_step} \\
+\mathbf{M-Step} &: \theta^{(t+1)} = \argmaxA_{\theta} \mathbb{E}_{P(z \mid y, \theta^{(t)})} \left[ \log \left( p (y, z \mid \theta) \right) \right].
+\label{eq_m_step}
+\end{align}
+Now, back to our original problem, to generalize the problem to a mixture of $K$ Gaussians, let $z$ be a $K$-dimensional binary random variable which has a 1-of-$K$ representation in which a particular element $z_k$ is equal to 1 and all other elements are equal to 0. The values of $z_k$ therefore satisfy $z_k \in \{0, 1\}$ and $\sum_k z_k = 1$, and we see that there are $K$ possible states for the vector $z$ according to which element is nonzero. The marginal distribution over $z$ is specified in terms of the mixing coefficients $\pi_k$, such that $P(z_k = 1) = \pi_k$ and $0 \le \pi_k \le 1$ and $\sum_k \pi_k =1$. We can write
+\begin{align}
+P(z \mid \theta) = \prod_{k=1}^K \pi_k^{z_k }
+\end{align}
+similarly
+\begin{align}
+P(y_{1:N} \mid z, \theta ) = \prod_{i=1}^N  \prod_{k=1}^K \mathcal{N}(y_{i} ; \mu_k, \sigma_k)^{z_k}.
+\end{align}
+Using Bayes rule, 
+\begin{align}
+P(z \mid y_{1:N}, \theta ) = \frac{P(y_{1:N} \mid z, \theta ) P(z \mid \theta)}{\sum_z P(y_{1:N} \mid z, \theta ) P(z \mid \theta)}  = \frac{\prod_{k=1}^K ( \pi_k\mathcal{N}(y_i ; \mu_k, \sigma_k))^{z_k }}{\sum_{j=1}^K \pi_j \mathcal{N}(y ; \mu_j, \sigma_j) }.
+\end{align}
+Denoting $\gamma(z_k; y, \theta) \triangleq P(z_k = 1\mid y, \theta ) $, we have
+\begin{align}
+\gamma(z_k; y, \theta )  =   \frac{  \pi_k\mathcal{N}(y ; \mu_k, \sigma_k) }{\sum_{j=1}^K \pi_j \mathcal{N}(y ; \mu_j, \sigma_j) }.
+\end{align}
+Since $z$ can only take discrete values, the E-Step in equation \eqref{eq_e_step} can be written as 
+\begin{align}
+Q(\theta \mid \theta^{(t)}) = \sum_{k=1}^K \gamma(z_k; y, \theta^{(t)} )  \log \left( \pi_k \mathcal{N}(y ; \mu_k, \sigma_k) \right)
+\end{align}
+and the M-Step in equation \eqref{eq_m_step} involves maximizing the above $Q(\theta \mid \theta^{(t)}) $ to find the parameters of the next iteration. Taking the derivative with respect to different parameters we have 
+\begin{align}
+\frac{\partial Q(\theta \mid \theta^{(t)})}{\partial \pi_k} = 0 \Rightarrow
+\end{align}
+\end{document}
