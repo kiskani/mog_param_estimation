@@ -6,6 +6,8 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{amsthm}
+\usepackage{hyperref}
+\usepackage{soul}
 \DeclareMathOperator*{\argmaxA}{arg\,max}
 
 \newtheorem{example}{Example}
@@ -72,7 +74,7 @@ Due to the independence of the data points we can write
 \end{align}
  Finding the maximizing $\theta$ in this problem can be challenging. Trying to analytically solve the problem by taking the derivative is not possible since analytic solution does not exist. However, we can use gradient descent to estimate the parameter vector.  In gradient descent estimation we want to minimize
  \begin{align}
-l (\theta)  &=  -\sum_{i=1}^N \log \left( P(y_i \mid \theta) \right) \nonumber \\ &= -\sum_{i=1}^N \log \left( \pi_1 \frac{1}{\sigma_1 \sqrt{2 \pi}} \exp \left( -\frac{(y_i-\mu_1)^2}{2\sigma_1^2}\right) + \pi_2 \frac{1}{\sigma_2 \sqrt{2 \pi}} \exp \left( -\frac{(y_i-\mu_2)^2}{2\sigma_2^2}\right) \right) 
+l (\theta)  &=  -\sum_{i=1}^N \log \left( P(y_i \mid \theta) \right) \nonumber \\ &= -\sum_{i=1}^N \log \left( \pi_1 \frac{1}{\sigma_1 \sqrt{2 \pi}} \exp \left( -\frac{(y_i-\mu_1)^2}{2\sigma_1^2}\right) + \pi_2 \frac{1}{\sigma_2 \sqrt{2 \pi}} \exp \left( -\frac{(y_i-\mu_2)^2}{2\sigma_2^2}\right) \right)  \nonumber 
 \end{align}
 with respect to parameters  $\theta = (\pi_1, \mu_1, \sigma_1, \pi_2, \mu_2, \sigma_2)$. We initialize by some random choice for these parameters and then iterate.  The problem with this method is that sometimes, gradient is hard to compute. 
 
@@ -83,7 +85,7 @@ f(\theta) &= \log \left( P(y \mid \theta) \right) = \log \left( \sum_z P(y,z \mi
 &= \log \left( \sum_z q(z \mid y, \theta) \frac{P(y,z \mid \theta)}{q(z \mid y, \theta)}\right) \nonumber \\
 &\ge \sum_z q(z \mid y, \theta) \log \left( \frac{P(y,z \mid \theta)}{q(z \mid y, \theta)} \right) \nonumber \\
 &= \sum_z q(z \mid y, \theta) \log \left( \frac{P(z \mid y, \theta) P(y \mid \theta)}{q(z \mid y, \theta)} \right) \nonumber \\
-&= - D_{KL}\left( q(z \mid y, \theta) ~ ||~ P(z \mid y, \theta) \right) + \log \left( P(y \mid \theta) \right).
+&= - D_{KL}\left( q(z \mid y, \theta) ~ ||~ P(z \mid y, \theta) \right) + \log \left( P(y \mid \theta) \right).v 
 \end{align}
 Where $ q(z \mid y, \theta) $ is an arbitrary density over $z$ and the inequality is valid due to Jensen's inequality and concavity of the log function. Now, instead of maximizing $f(\theta)$ directly, one can maximize the lower bound, i.e.
 \begin{align}
@@ -124,28 +126,93 @@ Therefore, in summary the EM algorithm can be summarized as follows
 \mathbf{M-Step} &: \theta^{(t+1)} = \argmaxA_{\theta} \mathbb{E}_{P(z \mid y, \theta^{(t)})} \left[ \log \left( p (y, z \mid \theta) \right) \right].
 \label{eq_m_step}
 \end{align}
-Now, back to our original problem, to generalize the problem to a mixture of $K$ Gaussians, let $z$ be a $K$-dimensional binary random variable which has a 1-of-$K$ representation in which a particular element $z_k$ is equal to 1 and all other elements are equal to 0. The values of $z_k$ therefore satisfy $z_k \in \{0, 1\}$ and $\sum_k z_k = 1$, and we see that there are $K$ possible states for the vector $z$ according to which element is nonzero. The marginal distribution over $z$ is specified in terms of the mixing coefficients $\pi_k$, such that $P(z_k = 1) = \pi_k$ and $0 \le \pi_k \le 1$ and $\sum_k \pi_k =1$. We can write
+Now, back to our original problem, to generalize the problem to a mixture of $K$ Gaussians, let $z$ be a $K$-dimensional binary random variable which has a 1-of-$K$ representation in which a particular element $z^k$ is equal to 1 and all other elements are equal to 0. The values of $z^k$ therefore satisfy $z^k \in \{0, 1\}$ and $\sum_k z^k = 1$, and we see that there are $K$ possible states for the vector $z$ according to which element is nonzero. The marginal distribution over $z$ is specified in terms of the mixing coefficients $\pi_k$, such that $P(z^k = 1) = \pi_k$ and $0 \le \pi_k \le 1$ and $\sum_k \pi_k =1$. For the $i^{th}$ sample, we can write
 \begin{align}
-P(z \mid \theta) = \prod_{k=1}^K \pi_k^{z_k }
+P(z_i \mid \theta) = \prod_{k=1}^K \pi_k^{z^k_i }.
+\end{align}
+Hence, 
+\begin{align}
+P(z_{1:N} \mid \theta) = \prod_{i=1}^N  \prod_{k=1}^K \pi_k^{z^k_i }.
 \end{align}
 similarly
 \begin{align}
-P(y_{1:N} \mid z, \theta ) = \prod_{i=1}^N  \prod_{k=1}^K \mathcal{N}(y_{i} ; \mu_k, \sigma_k)^{z_k}.
+P(y_{1:N} \mid z_{1:N}, \theta ) = \prod_{i=1}^N  \prod_{k=1}^K \mathcal{N}(y_{i} ; \mu_k, \sigma_k)^{z^k_i}.
+\end{align}
+and 
+\begin{align}
+P(y_{1:N} , z_{1:N} \mid \theta ) = \prod_{i=1}^N  \prod_{k=1}^K (\pi_k \mathcal{N}(y_{i} ; \mu_k, \sigma_k))^{z^k_i}.
+\end{align}
+and 
+\begin{align}
+\log \left( P(y_{1:N} , z_{1:N} \mid \theta ) \right)= \sum_{i=1}^N  \sum_{k=1}^K z^k_i \log \left( \pi_k \mathcal{N}(y_{i} ; \mu_k, \sigma_k) \right).
 \end{align}
 Using Bayes rule, 
 \begin{align}
-P(z \mid y_{1:N}, \theta ) = \frac{P(y_{1:N} \mid z, \theta ) P(z \mid \theta)}{\sum_z P(y_{1:N} \mid z, \theta ) P(z \mid \theta)}  = \frac{\prod_{k=1}^K ( \pi_k\mathcal{N}(y_i ; \mu_k, \sigma_k))^{z_k }}{\sum_{j=1}^K \pi_j \mathcal{N}(y ; \mu_j, \sigma_j) }.
+P(z_{1:N} \mid y_{1:N}, \theta ) &= \frac{P(y_{1:N} \mid z_{1:N}, \theta ) P(z_{1:N} \mid \theta)}{\sum_z P(y_{1:N} \mid z_{1:N}, \theta ) P(z_{1:N} \mid \theta)}  \nonumber \\
+&= \frac{\prod_{i=1}^N \prod_{k=1}^K ( \pi_k\mathcal{N}(y_i ; \mu_k, \sigma_k))^{z^k_i }}{\prod_{i=1}^N \sum_{j=1}^K \pi_j \mathcal{N}(y_i ; \mu_j, \sigma_j) } \nonumber \\
+&=\prod_{i=1}^N   \frac{\prod_{k=1}^K ( \pi_k\mathcal{N}(y_i ; \mu_k, \sigma_k))^{z^k_i }}{\sum_{j=1}^K \pi_j \mathcal{N}(y_i ; \mu_j, \sigma_j) }.
 \end{align}
-Denoting $\gamma(z_k; y, \theta) \triangleq P(z_k = 1\mid y, \theta ) $, we have
+Denoting $\gamma(z^k_i; y_i, \theta) \triangleq P(z^k_i = 1\mid y_i, \theta ) $, we have
 \begin{align}
-\gamma(z_k; y, \theta )  =   \frac{  \pi_k\mathcal{N}(y ; \mu_k, \sigma_k) }{\sum_{j=1}^K \pi_j \mathcal{N}(y ; \mu_j, \sigma_j) }.
+\gamma(z^k_i; y_i, \theta )  =   \frac{  \pi_k\mathcal{N}(y_i ; \mu_k, \sigma_k) }{\sum_{j=1}^K \pi_j \mathcal{N}(y_i ; \mu_j, \sigma_j) }.
+\label{eq_gamma}
 \end{align}
 Since $z$ can only take discrete values, the E-Step in equation \eqref{eq_e_step} can be written as 
 \begin{align}
-Q(\theta \mid \theta^{(t)}) = \sum_{k=1}^K \gamma(z_k; y, \theta^{(t)} )  \log \left( \pi_k \mathcal{N}(y ; \mu_k, \sigma_k) \right)
+Q(\theta \mid \theta^{(t)}) &= \mathbb{E}_{P(z_{1:N} \mid y_{1:N}, \theta^{(t)})} \left[ \log \left( P(y_{1:N}, z_{1:N} \mid \theta)\right)\right] \nonumber \\
+&= \mathbb{E}_{P(z_{1:N} \mid y_{1:N}, \theta^{(t)})} \left[ \sum_{i=1}^N  \sum_{k=1}^K z^k_i \log \left( \pi_k \mathcal{N}(y_{i} ; \mu_k, \sigma_k) \right) \right] \nonumber \\
+&= \sum_{i=1}^N  \sum_{k=1}^K \mathbb{E}_{P(z_{1:N} \mid y_{1:N}, \theta^{(t)})} \left[z^k_i \log \left( \pi_k \mathcal{N}(y_{i} ; \mu_k, \sigma_k) \right) \right] \nonumber \\
+&= \sum_{i=1}^N  \sum_{k=1}^K \mathbb{E}_{P(z_{1:N} \mid y_{1:N}, \theta^{(t)})} \left[z^k_i \right] \log \left( \pi_k \mathcal{N}(y_{i} ; \mu_k, \sigma_k) \right)  \nonumber \\
+&= \sum_{i=1}^N  \sum_{k=1}^K \mathbb{E}_{P(z_{i} \mid y_{i}, \theta^{(t)})} \left[z^k_i \right] \log \left( \pi_k \mathcal{N}(y_{i} ; \mu_k, \sigma_k) \right)  \nonumber \\
+&= \sum_{i=1}^N \sum_{k=1}^K \gamma(z^k_i; y_i, \theta^{(t)} )  \log \left( \pi_k \mathcal{N}(y_i ; \mu_k, \sigma_k) \right)
 \end{align}
-and the M-Step in equation \eqref{eq_m_step} involves maximizing the above $Q(\theta \mid \theta^{(t)}) $ to find the parameters of the next iteration. Taking the derivative with respect to different parameters we have 
+and the M-Step in equation \eqref{eq_m_step} involves maximizing the above $Q(\theta \mid \theta^{(t)}) $ to find the parameters of the next iteration. Taking the derivative with respect to $\mu_k$ we have 
 \begin{align}
-\frac{\partial Q(\theta \mid \theta^{(t)})}{\partial \pi_k} = 0 \Rightarrow
+\frac{\partial Q(\theta \mid \theta^{(t)})}{\partial \mu_k} &= 0 \Rightarrow  \sum_{i=1}^N  \gamma(z^k_i; y_i, \theta^{(t)} )   \left( \mu_k - y_i  \right) = 0. \nonumber
 \end{align}
+Therefore,
+\begin{align}
+\mu_k^{(t+1)} = \frac{1}{\sum_{i=1}^N  \gamma(z^k_i; y_i, \theta^{(t)}) } \sum_{i=1}^N  \gamma(z^k_i; y_i, \theta^{(t)})  y_i. 
+\end{align}
+Denoting 
+\begin{align}
+N_k \triangleq \sum_{i=1}^N  \gamma(z^k_i; y_i, \theta^{(t)}) ,
+\label{eq_def_nk}
+\end{align}
+we have 
+\begin{align}
+\mu_k^{(t+1)} = \frac{1}{N_k } \sum_{i=1}^N  \gamma(z^k_i; y_i, \theta^{(t)})  y_i
+\label{eq_update_mu}
+\end{align}
+Similarly, taking the derivative with respect to $\sigma_k$, we have 
+\begin{align}
+\frac{\partial Q(\theta \mid \theta^{(t)})}{\partial \sigma_k} &= 0 \Rightarrow  \sum_{i=1}^N  \gamma(z^k_i; y_i, \theta^{(t)} )   \left( \frac{(y_i - \mu_k)^2}{\sigma_k^2} - 1  \right) = 0. \nonumber
+\end{align}
+Plugging in $\mu_k = \mu_k^{(t+1)}$ we have 
+\begin{align}
+\sigma_k^{(t+1)} =  \sqrt{\frac{1}{N_k} \sum_{i=1}^N  \gamma(z^k_i; y_i, \theta^{(t)})  (y_i - \mu_k^{(t+1)})^2}. 
+\label{eq_update_sigma}
+\end{align}
+It only remains to find $\pi_k^{(t+1)}$.  To find $\pi_k^{(t+1)}$, we should notice that $\sum_{k=1}^K \pi_k = 1$. Therefore, to optimize for $\pi_k$'s we need to add a Lagrange constraint to $Q(\theta \mid \theta^{(t)})$ when taking the derivative. Hence, we should maximize
+\begin{align}
+ L(\theta \mid \theta^{(t)})  \triangleq Q(\theta \mid \theta^{(t)}) + \lambda \left(\sum_{k=1}^K \pi_k -1 \right) \nonumber
+\end{align}
+Taking the derivative with respect to $\pi_k$'s we have 
+\begin{align}
+\frac{\partial L(\theta \mid \theta^{(t)})}{\partial \pi_k} &= \frac{\partial Q(\theta \mid \theta^{(t)})}{\partial \pi_k} + \lambda = \sum_{i=1}^N  \frac{\gamma(z^k_i; y_i, \theta^{(t)} )}{\pi_k} + \lambda = \frac{N_k}{\pi_k} + \lambda = 0 \Rightarrow \pi_k = \frac{N_k}{\lambda} \nonumber 
+\end{align}
+Since sum of all $\pi_k$'s should be one, we have 
+\begin{align}
+\sum_{k=1}^K \frac{N_k}{\lambda} = 1  \Rightarrow \lambda &= \sum_{k=1}^K  N_k = \sum_{k=1}^K \sum_{i=1}^N \gamma(z^k_i; y_i, \theta^{(t)} ) \nonumber \\
+&=  \sum_{i=1}^N  \sum_{k=1}^K \gamma(z^k_i; y_i, \theta^{(t)} ) = \sum_{i=1}^N 1 = N \nonumber 
+\end{align}
+Therefore, 
+\begin{align}
+\pi_k^{(t+1)} = \frac{N_k}{N}. 
+\label{eq_update_pi}
+\end{align}
+To summarize it all, the E-Step in mixture of Gaussians is equivalent to calculating $\gamma(z^k_i; y_i, \theta^{(t)} )$ based on equation \eqref{eq_gamma} and the M-Step is equivalent to updating the parameters based on equations \eqref{eq_def_nk}, \eqref{eq_update_mu}, \eqref{eq_update_sigma} and  \eqref{eq_update_pi}. These are pretty consistent with equations in page 439 of \cite{bishop2006pattern}.
+
+\bibliographystyle{plain}
+\bibliography{mog_bib}
 \end{document}
